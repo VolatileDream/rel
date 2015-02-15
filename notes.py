@@ -11,6 +11,8 @@ import uuid
 
 class Note(object):
 
+	SUMMARY_LENGTH = 140
+
 	def __init__(self, notebook, vertex=None, content=None):
 		self.notebook = notebook
 		self.graph = notebook.graph
@@ -23,17 +25,30 @@ class Note(object):
 			# all the fields have been populated
 			self.vertex = vertex
 
+
 	@property
 	def id(self):
 		return self.graph.vertex_properties[ Notebook.ID_KEY ][ self.vertex ]
+
 
 	@property
 	def content(self):
 		return self.graph.vertex_properties[ Notebook.CONTENT_KEY ][ self.vertex ]
 
+
 	@content.setter
 	def content_set(self, value):
 		self.graph.vertex_properties[ Notebook.CONTENT_KEY ][ self.vertex ] = value
+
+
+	@property
+	# The short description of the item
+	def short(self):
+		try:
+			newline_index = self.content.index("\n")
+		except ValueError:
+			newline_index = len(self.content)
+		return self.content[ 0 : min(newline_index, Note.SUMMARY_LENGTH) ]
 
 
 	def children(self, add=None, remove=None):
@@ -58,9 +73,12 @@ class Note(object):
 			self.notebook.remove_edge(parent, self)
 
 		return self.vertex.in_neighbours()
+
+	def __repr__(self):
+		return "{0}: {1}".format(self.id, self.short)
 	
 
-from graph_tool.all import Graph, load_graph
+from graph_tool import Graph, load_graph
 import os
 
 
@@ -129,4 +147,6 @@ class Notebook(object):
 	def save(self):
 		self.graph.save(self.stored, fmt=Notebook.FORMAT)
 
+	def export(self, file, fmt="dot"):
 
+		self.graph.save(file, fmt)

@@ -39,7 +39,7 @@ def remove_note(id):
 
 
 @nb_ui.command("list")
-@click.option("-t", "--template", default="{0} := {1}")
+@click.option("-t", "--template", default="{id} := {content}")
 @click.argument("filter", required=False)
 def list_notes(template, filter):
 
@@ -48,7 +48,7 @@ def list_notes(template, filter):
 	# use plyplus to construct the filter/selection function
 
 	for note in book.notes():
-		print( template.format( note.id, note.content ) )
+		print( template.format( id=note.id, content=note.content, short=note.short ) )
 
 
 @nb_ui.command("relations")
@@ -79,6 +79,21 @@ def update_relationshisp(remove, parent, child, notes):
 		else:
 			note.parents(add=parents)
 			note.children(add=children)
+
+	book.save()
+
+
+@nb_ui.command("export")
+@click.option("-f", "--format", default="dot", type=click.Choice(["dot", "gml", "gt", "graphml"]))
+@click.argument("file", type=click.Path(exists=False, writable=True, dir_okay=False), required=False)
+def export_graph(format, file=None):
+
+	book = get_book()
+
+	if not file:
+		file = "/dev/stdout"
+
+	book.export(file, format)
 
 
 if __name__ == "__main__":
