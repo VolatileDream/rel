@@ -65,8 +65,7 @@ class Note(object):
 		for child in remove:
 			self.notebook._remove_edge(self, child)
 
-		for relation_child in self.node.match_outgoing(rel_type=RelatedNote.label):
-			yield Note(self.notebook, relation_child.end_node)
+		return [ Note(self.notebook, relation_parent.end_node) for relation_parent in self.node.match_outgoing(rel_type=RelatedNote.label) ]
 
 
 	def parents(self, add=None, remove=None):
@@ -78,8 +77,8 @@ class Note(object):
 		for parent in remove:
 			self.notebook._remove_edge(parent, self)
 
-		for relation_parent in self.node.match_incoming(rel_type=RelatedNote.label):
-			yield Note(self.notebook, relation_parent.start_node)
+		return [ Note(self.notebook, relation_parent.start_node) for relation_parent in self.node.match_incoming(rel_type=RelatedNote.label) ]
+
 
 	def __repr__(self):
 		return "{0}: {1}".format(self.id, self.short)
@@ -104,7 +103,6 @@ class RelatedNote(object):
 		return RelatedNote(relationship)
 
 	def __init__(self, n0, n1=None):
-		print(n1)
 		if n1:
 			self.rel = Relationship(n0.node, RelatedNote.label, n1.node)
 		else:
@@ -146,7 +144,4 @@ class Notebook(object):
 			if not predicate or predicate(n):
 				yield n
 
-
-	def export(self, file, fmt="dot"):
-		self.g.save(file, fmt)
 

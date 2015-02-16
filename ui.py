@@ -9,14 +9,18 @@ options = { "neo4j" : "http://localhost:7474/db/data/" }
 def get_book():
 	return Notebook(options["neo4j"])
 
+
 @click.group()
-@click.option("--neo4j")
+@click.option("--neo4j", help="URI for neo4j instance")
 def nb_ui(**kvargs):
 	options.update(kvargs)
 
+
 @nb_ui.command("add")
 @click.argument("content", required=False)
-def add_note(content):
+@click.option("-p", "--parent", multiple=True)
+@click.option("-c", "--child", multiple=True)
+def add_note(content, parent, child):
 
 	if content is None:
 		content = "/dev/stdin"
@@ -27,6 +31,9 @@ def add_note(content):
 
 	book = get_book()
 	note = book.create_note(content)
+
+	if parent or child:
+		update_relationships(False, parent, child, [note.id])
 
 	print(note.id)
 
@@ -59,12 +66,7 @@ def list_notes(template, filter):
 		print( template.format( id=note.id, content=note.content, short=note.short ) )
 
 
-@nb_ui.command("relations")
-@click.option("--remove", is_flag=True)
-@click.option("-p", "--parent", multiple=True)
-@click.option("-c", "--child", multiple=True)
-@click.argument("notes", nargs=-1)
-def update_relationshisp(remove, parent, child, notes):
+def update_relationships(remove, parent, child, notes):
 
 	def matching_id(id_list):
 		def in_list(note):
@@ -85,18 +87,13 @@ def update_relationshisp(remove, parent, child, notes):
 			note.children(add=children)
 
 
-
-@nb_ui.command("export")
-@click.option("-f", "--format", default="dot", type=click.Choice(["dot", "gml", "gt", "graphml"]))
-@click.argument("file", type=click.Path(exists=False, writable=True, dir_okay=False), required=False)
-def export_graph(format, file=None):
-
-	book = get_book()
-
-	if not file:
-		file = "/dev/stdout"
-
-	book.export(file, format)
+@nb_ui.command("relations")
+@click.option("--remove", is_flag=True)
+@click.option("-p", "--parent", multiple=True)
+@click.option("-c", "--child", multiple=True)
+@click.argument("notes", nargs=-1)
+def relations(remove, parent, child, notes):
+	update_relationships(remove, parent, child, notes)
 
 
 if __name__ == "__main__":
