@@ -4,12 +4,15 @@ import click
 
 import os
 
+options = { "neo4j" : "http://localhost:7474/db/data/" }
+
 def get_book():
-	return Notebook()
+	return Notebook(options["neo4j"])
 
 @click.group()
-def nb_ui():
-	pass
+@click.option("--neo4j")
+def nb_ui(**kvargs):
+	options.update(kvargs)
 
 @nb_ui.command("add")
 @click.argument("content", required=False)
@@ -45,8 +48,12 @@ def list_notes(template, filter):
 
 	book = get_book()
 
-	# use plyplus to construct the filter/selection function
-	traversal = lisp.parse(filter, query.get_context_functions())
+	if filter:
+		# use plyplus to construct the filter/selection function
+		traversal = lisp.parse(filter, query.get_context_functions())
+	else:
+		# as an optional argument, we must construct a passthrough
+		traversal = lambda x : x
 
 	for note in traversal( set(book.notes()) ):
 		print( template.format( id=note.id, content=note.content, short=note.short ) )
