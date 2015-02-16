@@ -4,18 +4,21 @@ def get_functions():
 	return dict(func_table) # return non-mutable copy
 
 
-def expose(func):
-	return expose2(func.__name__, func)
+def expose(func, table=None):
+	return expose2(func.__name__, func, table=table)
 
 
-def expose2(name, function):
-	func_table[ name ] = function
+def expose2(name, function, table=None):
+	if not table:
+		func_table[ name ] = function
+	else:
+		table[name] = function
 	return function
 
 
-def expose_as(name):
+def expose_as(name, table=None):
 	def wrap(func):
-		return expose2( name, func )
+		return expose2( name, func, table=table )
 	return wrap
 
 
@@ -36,33 +39,34 @@ def subtract(*args):
 
 
 # The things that are important to expose
+def for_all(func):
+	return lambda nodes: set([ n for n in nodes if func(n) ])
 
-@expose
+
+@expose_as("print")
+def p(arg):
+	def other_p(nodes):
+		result = arg(nodes)
+		print(result)
+		return result
+	return other_p
+
+@expose_as("id=")
 def id_eq(val):
-	return lambda note: note.id is val
+	return for_all( lambda note: note.id is val )
 
-@expose
+@expose_as("id~")
 def id_like(val):
-	return lambda note: val in note.id
+	return for_all( lambda note: val in note.id )
 
-@expose
+@expose_as("~")
 def like(val):
-	return lambda note: val in note.content
-
-def check(maybe_cond):
-	def c(note):
-		if callable(maybe_cond):
-			return maybe_cond(note)
-		else:
-			# yay, truthy/falsy -> truth/false conversion
-			return not not maybe_cond
-	return c
+	return for_all( lambda note: val in note.content )
 
 
 @expose_as("not")
 def negate(cond):
-	cond = check(cond)
-	return lambda note: not cond(note)
+	return lambda notes: notes.difference( cond(notes) )
 
 
 ## Logic stuff
@@ -71,7 +75,6 @@ def negate(cond):
 def logic(default, reduction, constraints=None):
 	""" provide a default value for reduction, and extra constraints that must be met """
 	def logic(*conds):
-		conds = map( check, conds )
 		def check_logic(note):
 			results = map( lambda cond: cond(note), conds )
 			reduced = reduce( reduction, results, default )
@@ -82,68 +85,80 @@ def logic(default, reduction, constraints=None):
 	return logic
 
 
-expose_as("all")(
-	logic(True,
-		lambda x, y: x and y,
-		lambda res: len(res) > 0) )
+@expose_as("and")
+def intersect(*conds):
 
+	def i(notes):
+		result_sets = map( lambda cond: cond(notes), conds )
+		reduced = reduce( lambda x, y: x.intersection(y), result_sets, notes )
+		return reduced
 
-expose_as("and")(
-	logic(True, lambda x, y: x and y) )
+	return i
 
+@expose_as("or")
+def union(*conds):
+	def u(notes):
+		result_sets = map( lambda cond: cond(notes), conds )
+		reduced = reduce( lambda x, y: x.union(y), result_sets, set() )
+		return reduced
 
-expose_as("one")(
-	logic(False,
-		lambda x, y: x or y,
-		lambda res: len(res) > 0) )
-
-
-expose_as("or")(
-	logic(False, lambda x, y: x or y ) )
+	return u
 
 ## Here be dragons
-def iter_check(item_gen, join_cond):
-	def top(*conds):
-		check_and = func_table['and'](*conds)
-		def check(note):
-			conds = map( lambda p: lambda f: f(p), item_gen(note) )
-			return join_cond( conds )( check_and )
+
+
+def iter_check(item_gen):
+	""" given a way to generate new items (item_gen), and an item to
+		generate from (note_gens), generate more notes. """
+	def top(*note_gens):
+		def check(notes):
+			result_notes = union(*note_gens)(notes)
+			new_items = map( item_gen, result_notes )
+			result = reduce( lambda x, y: x.union(y), new_items, set() )
+			return result
 		return check
 	return top
 
 
-expose_as("parent+")(
-	iter_check( lambda note: note.parents(), func_table['one'] ) )
+@expose_as("parent")
+@iter_check
+def parent(note):
+	return set(note.parents())
 
-expose_as("parent")(
-	iter_check( lambda note: note.parents(), func_table['or'] ) )
-
-expose_as("child+")(
-	iter_check( lambda note: note.children(), func_table['one'] ) )
-
-expose_as("child")(
-	iter_check( lambda note: note.children(), func_table['or'] ) )
+@expose_as("child")
+@iter_check
+def child(note):
+	return set(note.children())
 
 ### And now for magic...
 
-def use_context_functions():
+def get_context_functions():
+
+	ctx_funcs = dict(get_functions())
 	context = {}
 
 	def init_name(name):
 		try:
 			context[name]
 		except KeyError:
-			context[name] = []
+			context[name] = set()
 
-	@expose_as("?")
+	@expose_as("?", table=ctx_funcs)
 	def aggregate(name, *conds):
 		init_name(name)
-		def do_ag(note):
-			result = func_table['and'](*conds)( note )
-			if result:
-				context[name].append( note )
+		def do_ag(notes):
+			result = union(*conds)( notes )
+			context[name].update( result )
 			return result
 		return do_ag
 
+	@expose_as("!", table=ctx_funcs)
+	def ret(name, *conds):
+		init_name(name)
+		def do_ret(notes):
+			result = union(*conds)( notes )
+			return result.union( context[name] )
+		return do_ret
 
-	return context
+
+	return ctx_funcs

@@ -36,6 +36,8 @@ def remove_note(id):
 	book.remove_note(id)
 
 
+import query, lisp
+
 @nb_ui.command("list")
 @click.option("-t", "--template", default="{id} := {content}")
 @click.argument("filter", required=False)
@@ -44,8 +46,9 @@ def list_notes(template, filter):
 	book = get_book()
 
 	# use plyplus to construct the filter/selection function
+	traversal = lisp.parse(filter, query.get_context_functions())
 
-	for note in book.notes():
+	for note in traversal( set(book.notes()) ):
 		print( template.format( id=note.id, content=note.content, short=note.short ) )
 
 
