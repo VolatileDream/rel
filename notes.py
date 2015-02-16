@@ -9,36 +9,41 @@ def to_iter(o):
 
 import uuid
 
+from py2neo import Node, Relationship
+from datetime import datetime
+
 class Note(object):
 
+	label = "Note"
 	SUMMARY_LENGTH = 140
 
-	def __init__(self, notebook, vertex=None, content=None):
+	def __init__(self, notebook, node_or_content):
 		self.notebook = notebook
-		self.graph = notebook.graph
-
-		if not vertex:
-			self.vertex = self.graph.add_vertex()
-			self.graph.vertex_properties[ Notebook.CONTENT_KEY ][ self.vertex ] = content
-			self.graph.vertex_properties[ Notebook.ID_KEY ][ self.vertex ] = uuid.uuid4()
+		if type(node_or_content) is not Node:
+			# graph libs can't handle uuid type
+			self.node = Node(Note.label, content=node_or_content, created=datetime.utcnow(), id=str(uuid.uuid4()) )
 		else:
-			# all the fields have been populated
-			self.vertex = vertex
+			self.node = node_or_content
 
 
 	@property
 	def id(self):
-		return self.graph.vertex_properties[ Notebook.ID_KEY ][ self.vertex ]
+		return self.node.properties[ "id" ]
+
+
+	@property
+	def created(self):
+		return self.node.properties[ "created" ]
 
 
 	@property
 	def content(self):
-		return self.graph.vertex_properties[ Notebook.CONTENT_KEY ][ self.vertex ]
+		return self.node.properties[ "content" ]
 
 
 	@content.setter
 	def content_set(self, value):
-		self.graph.vertex_properties[ Notebook.CONTENT_KEY ][ self.vertex ] = value
+		self.node.properties[ "content" ] = value
 
 
 	@property
@@ -54,99 +59,84 @@ class Note(object):
 	def children(self, add=None, remove=None):
 		add = to_iter(add)
 		for child in add:
-			self.notebook.create_edge(self, child)
+			self.notebook._create_edge(self, child)
 
 		remove = to_iter( remove )
 		for child in remove:
-			self.notebook.remove_edge(self, child)
+			self.notebook._remove_edge(self, child)
 
-		return self.vertex.out_neighbours()
+		for relation_child in self.node.match_outgoing(rel_type=RelatedNote.label):
+			yield Note(self.notebook, relation_child.end_node)
 
 
 	def parents(self, add=None, remove=None):
 		add = to_iter(add)
 		for parent in add:
-			self.notebook.create_edge(parent, self)
+			self.notebook._create_edge(parent, self)
 
 		remove = to_iter( remove )
 		for parent in remove:
-			self.notebook.remove_edge(parent, self)
+			self.notebook._remove_edge(parent, self)
 
-		return self.vertex.in_neighbours()
+		for relation_parent in self.node.match_incoming(rel_type=RelatedNote.label):
+			yield Note(self.notebook, relation_parent.start_node)
 
 	def __repr__(self):
 		return "{0}: {1}".format(self.id, self.short)
 	
 
-from graph_tool import Graph, load_graph
+class RelatedNote(object):
+
+	label = "related_with"
+
+	@staticmethod
+	def wrap(relationship):
+		return RelatedNote(relationship)
+
+	def __init__(self, n0, n1=None):
+		print(n1)
+		if n1:
+			self.rel = Relationship(n0.node, RelatedNote.label, n1.node)
+		else:
+			self.rel = n0
+
+
+from py2neo import Graph
 import os
 
 
 class Notebook(object):
 
-	FORMAT = "graphml"
-
-	ID_KEY = "id"
-	CONTENT_KEY = "content"
-	KEYS = [ ID_KEY, CONTENT_KEY ]
-
-	def __init__(self, storage_file):
-
-		self.stored = storage_file
-
-		if os.path.exists(self.stored):
-			self.graph = load_graph(self.stored, fmt=Notebook.FORMAT)
-		else:
-			self.graph = Graph()
-
-			self.graph.vertex_properties[ Notebook.ID_KEY ] = self.graph.new_vertex_property("string")
-			self.graph.vertex_properties[ Notebook.CONTENT_KEY ] = self.graph.new_vertex_property("string")
+	def __init__(self, url="http://localhost:7474/db/data/"):
+		self.g = Graph(url)
 
 
-	def create_edge(self, parent, child):
-		self.graph.add_edge( parent.vertex, child.vertex )
+	def _create_edge(self, parent, child):
+		r = RelatedNote(parent, child)
+		self.g.create(r.rel)
+		return r
+
+	def _delete_edge(self, parent, child):
+		edges = parent.node.matching_outgoing(rel_type=RelatedNote.label, other_node=child.node)
+		self.g.delete(*edges)
+
+	def create_note(self, content):
+		n = Note( self, content )
+		self.g.create(n.node)
+		return n
 
 
-	def remove_edge(self, parent, child):
-		edge = self.graph.edge(parent.vertex, child.vertex )
-		self.graph.remove_edge( edge )
-
-
-	def create_note(self, content=None):
-		return Note( self, content=content )
-
-
-	def remove_note(self, note=None, id=None):
-
-		if note:
-			id = note.id
-
-		if not id:
-			raise Error("ID required")
-
-		number = -1
-		for v in self.graph.vertices():
-			if v.id == id:
-				number = self.graph.vertex_index[ v ]
-				break
-
-		if number < 0:
-			raise Error("Specified note doesn't exist")
-
-		self.graph.remove_vertex( number, fast=True )
+	def remove_notes(self, *notes):
+		self.g.delete(*notes)
 
 
 	def notes(self, predicate=None):
-
-		for v in self.graph.vertices():
-			n = Note(self, vertex=v)
+		for v in self.g.find(Note.label):
+			n = Note(self, v)
 			if not predicate or predicate(n):
 				yield n
 
 
-	def save(self):
-		self.graph.save(self.stored, fmt=Notebook.FORMAT)
-
 	def export(self, file, fmt="dot"):
+		self.g.save(file, fmt)
 
-		self.graph.save(file, fmt)

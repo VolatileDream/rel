@@ -5,7 +5,7 @@ import click
 import os
 
 def get_book():
-	return Notebook("/tmp/graph")
+	return Notebook()
 
 @click.group()
 def nb_ui():
@@ -24,7 +24,6 @@ def add_note(content):
 
 	book = get_book()
 	note = book.create_note(content)
-	book.save()
 
 	print(note.id)
 
@@ -35,7 +34,6 @@ def remove_note(id):
 
 	book = get_book()
 	book.remove_note(id)
-	book.save()
 
 
 @nb_ui.command("list")
@@ -58,10 +56,6 @@ def list_notes(template, filter):
 @click.argument("notes", nargs=-1)
 def update_relationshisp(remove, parent, child, notes):
 
-	print( notes )
-	print( parent )
-	print( child )
-
 	def matching_id(id_list):
 		def in_list(note):
 			return note.id in id_list
@@ -80,7 +74,6 @@ def update_relationshisp(remove, parent, child, notes):
 			note.parents(add=parents)
 			note.children(add=children)
 
-	book.save()
 
 
 @nb_ui.command("export")
