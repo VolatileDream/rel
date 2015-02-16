@@ -80,14 +80,14 @@ def update_relationships(remove, parent, child, notes):
 
 	for note in book.notes( matching_id(notes) ):
 		if remove:
-			note.parents(remove=parents)
-			note.children(remove=children)
+			note.update_parents(remove=parents)
+			note.update_children(remove=children)
 		else:
-			note.parents(add=parents)
-			note.children(add=children)
+			note.update_parents(add=parents)
+			note.update_children(add=children)
 
 
-@nb_ui.command("relations")
+@nb_ui.command("related")
 @click.option("--remove", is_flag=True)
 @click.option("-p", "--parent", multiple=True)
 @click.option("-c", "--child", multiple=True)

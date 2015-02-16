@@ -56,7 +56,7 @@ class Note(object):
 		return self.content[ 0 : min(newline_index, Note.SUMMARY_LENGTH) ]
 
 
-	def children(self, add=None, remove=None):
+	def update_children(self, add=None, remove=None):
 		add = to_iter(add)
 		for child in add:
 			self.notebook._create_edge(self, child)
@@ -65,10 +65,12 @@ class Note(object):
 		for child in remove:
 			self.notebook._remove_edge(self, child)
 
-		return [ Note(self.notebook, relation_parent.end_node) for relation_parent in self.node.match_outgoing(rel_type=RelatedNote.label) ]
 
+	def children(self):
+		for relation_parent in self.node.match_outgoing(rel_type=RelatedNote.label):
+			yield Note(self.notebook, relation_parent.end_node)
 
-	def parents(self, add=None, remove=None):
+	def update_parents(self, add=None, remove=None):
 		add = to_iter(add)
 		for parent in add:
 			self.notebook._create_edge(parent, self)
@@ -77,7 +79,10 @@ class Note(object):
 		for parent in remove:
 			self.notebook._remove_edge(parent, self)
 
-		return [ Note(self.notebook, relation_parent.start_node) for relation_parent in self.node.match_incoming(rel_type=RelatedNote.label) ]
+
+	def parents(self):
+		for relation_parent in self.node.match_incoming(rel_type=RelatedNote.label):
+			yield Note(self.notebook, relation_parent.start_node)
 
 
 	def __repr__(self):
