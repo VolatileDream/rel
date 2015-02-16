@@ -130,6 +130,11 @@ def parent(note):
 def child(note):
 	return set(note.children())
 
+@expose_as("related")
+@iter_check
+def related(note):
+	return set(note.children()).union( set(note.parents()) )
+
 ### And now for magic...
 
 def get_context_functions():
