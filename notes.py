@@ -83,6 +83,16 @@ class Note(object):
 
 	def __repr__(self):
 		return "{0}: {1}".format(self.id, self.short)
+
+
+	def __hash__(self):
+		return hash(self.id)
+
+
+	def __eq__(self, other):
+		if type(other) is Note:
+			return self.id.__eq__(other.id)
+		return False
 	
 
 class RelatedNote(object):
