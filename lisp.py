@@ -7,7 +7,7 @@ NotebookQueryGrammar = Grammar("""
 
 	func	: '[^\(\)0-9" \t\n]+'		;
 	number	: '[0-9]+(\.[0-9]+)?'		;
-	string	: '"[^ \t\n]*"'			;
+	string	: '".*"'			;
 	@param	: string | number | expr	;
 
 	WS: '[ \t\n]+' (%ignore) (%newline)	;

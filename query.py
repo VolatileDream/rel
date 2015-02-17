@@ -51,9 +51,18 @@ def p(arg):
 		return result
 	return other_p
 
+import re
+
+@expose_as("match")
+def regex_match(regex):
+	regex = re.compile(regex)
+	return for_all( lambda note: regex.match(note.content) )
+
+
 @expose_as("id=")
 def id_eq(val):
 	return for_all( lambda note: note.id is val )
+
 
 @expose_as("id~")
 def id_like(val):
@@ -134,6 +143,7 @@ def child(note):
 @iter_check
 def related(note):
 	return set(note.children()).union( set(note.parents()) )
+
 
 ### And now for magic...
 
