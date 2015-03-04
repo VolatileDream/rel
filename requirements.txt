@@ -2,3 +2,5 @@ PlyPlus==0.6.1
 click==3.3
 ply==3.4
 py2neo==2.0.4
+graphlite==1.0.5
+autumn==0.5.1
