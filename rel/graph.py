@@ -143,6 +143,8 @@ class Graph(object):
 		storm_db = create_database('sqlite:%s' % db_url)
 		self.storm = Store(storm_db)
 
+		Graph.__create_tables__(self)
+
 
 	def create_node(self, content):
 		n = Node( content )
