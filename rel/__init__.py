@@ -3,11 +3,15 @@ from graph import Graph, Node, Edge
 import click
 
 import os
+import sys
 
-options = {}
+options = { "graph" : None }
 
 def get_graph():
-	return Graph(options["database"])
+	# return the same object every time
+	if not options["graph"]:
+		options["graph"] = Graph(options["database"])
+	return options["graph"]
 
 
 @click.group()
@@ -21,7 +25,7 @@ def nb_ui(**kvargs):
 @click.argument("content", required=False)
 @click.option("-p", "--parent", multiple=True)
 @click.option("-c", "--child", multiple=True)
-def add_note(content, parent, child):
+def add_node(content, parent, child):
 
 	if content is None:
 		content = "/dev/stdin"
@@ -33,8 +37,10 @@ def add_note(content, parent, child):
 	graph = get_graph()
 	node = graph.create_node(unicode(content))
 
+	graph.commit() # otherwise node.id == None
+
 	if parent or child:
-		update_relationships(False, parent, child, [note.id])
+		update_relationships(False, parent, child, [node.id])
 
 	graph.commit()
 	print(node.id)
@@ -45,8 +51,46 @@ def add_note(content, parent, child):
 def remove_node(id):
 
 	graph = get_graph()
-	node = graph.node(id)
+	node = graph.node(int(id))
 	graph.remove_node(node)
+	graph.commit()
+
+def edit_content(content):
+	from tempfile import NamedTemporaryFile
+
+	with NamedTemporaryFile("w+b") as temp:
+
+		# write node content to file
+		temp.write(content)
+		temp.flush()
+
+		# get the user to edit it, exit of 0 is success, anything else isn't
+		rc = os.spawnlp(os.P_WAIT, "sensible-editor", "sensible-editor", temp.name)
+
+		# they aborted editing, return old content
+		if rc != 0:
+			return content
+
+		temp.seek(0) # go to beginning of file
+
+		return "".join( temp.readlines() )
+
+
+@nb_ui.command("edit")
+@click.argument("id")
+def edit_node(id):
+
+	graph = get_graph()
+
+	node = graph.node(int(id))
+	if not node:
+		sys.stderr.write("Couldn't find node with id: %s\n" % str(id) )
+		return 1
+
+	new_content = edit_content(node.content)
+
+	node.content = unicode(new_content)
+
 	graph.commit()
 
 
@@ -55,7 +99,7 @@ import query, lisp
 @nb_ui.command("list")
 @click.option("-t", "--template", default="{id} := {content}")
 @click.argument("filter", required=False)
-def list_notes(template, filter):
+def list_nodes(template, filter):
 
 	graph = get_graph()
 
@@ -70,19 +114,19 @@ def list_notes(template, filter):
 		print( template.format( id=node.id, content=node.content, short=node.short ) )
 
 
-def update_relationships(remove, parent, child, notes):
-
-	def matching_id(id_list):
-		def in_list(note):
-			return note.id in id_list
-		return in_list
+def update_relationships(remove, parent, child, nodes):
 
 	graph = get_graph()
 
-	parents = list( graph.notes( matching_id(parent) ) )
-	children = list( graph.notes( matching_id(child) ) )
+	# make sure they're ints, we might be getting these from the cli
+	nodes = [ int(x) for x in nodes ]
+	parent = [ int(x) for x in parent ]
+	child = [ int(x) for x in child ]
 
-	for node in graph.nodes( matching_id(notes) ):
+	parents = list( graph.nodes( Node.id.is_in(parent) ) )
+	children = list( graph.nodes( Node.id.is_in(child) ) )
+
+	for node in graph.nodes( Node.id.is_in(nodes) ):
 		if remove:
 			node.update_parents(remove=parents)
 			node.update_children(remove=children)
@@ -97,9 +141,9 @@ def update_relationships(remove, parent, child, notes):
 @click.option("--remove", is_flag=True)
 @click.option("-p", "--parent", multiple=True)
 @click.option("-c", "--child", multiple=True)
-@click.argument("notes", nargs=-1)
-def relations(remove, parent, child, notes):
-	update_relationships(remove, parent, child, notes)
+@click.argument("nodes", nargs=-1)
+def relations(remove, parent, child, nodes):
+	update_relationships(remove, parent, child, nodes)
 
 
 if __name__ == "__main__":
