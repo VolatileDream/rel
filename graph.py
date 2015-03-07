@@ -159,8 +159,11 @@ class Graph(object):
 		return self.storm.get(Node, id)
 
 
-	def nodes(self):
-		return self.storm.find(Node)
+	def nodes(self, *args, **kvargs):
+		if len(args) == 0 and len(kvargs) == 0:
+			return self.storm.find(Node)
+		else:
+			return self.storm.find(Node, *args, **kvargs)
 
 
 	def commit(self):
