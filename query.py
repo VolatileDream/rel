@@ -59,14 +59,10 @@ def regex_match(regex):
 	return for_all( lambda note: regex.match(note.content) )
 
 
-@expose_as("id=")
+@expose_as("id")
 def id_eq(val):
 	return for_all( lambda note: note.id is val )
 
-
-@expose_as("id~")
-def id_like(val):
-	return for_all( lambda note: val in note.id )
 
 @expose_as("~")
 def like(val):
@@ -129,12 +125,12 @@ def iter_check(item_gen):
 	return top
 
 
-@expose_as("parent")
+@expose_as("parents")
 @iter_check
 def parent(note):
 	return set(note.parents())
 
-@expose_as("child")
+@expose_as("children")
 @iter_check
 def child(note):
 	return set(note.children())
