@@ -1,5 +1,4 @@
 PlyPlus==0.6.1
 click==3.3
 ply==3.4
-graphlite==1.0.5
-autumn==0.5.1
+storm==0.20
