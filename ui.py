@@ -1,17 +1,18 @@
-from notes import Notebook
+from graph import Graph, Node, Edge
 
 import click
 
 import os
 
-options = { "neo4j" : "http://localhost:7474/db/data/" }
+options = {}
 
-def get_book():
-	return Notebook(options["neo4j"])
+def get_graph():
+	return Graph(options["database"])
 
 
 @click.group()
-@click.option("--neo4j", help="URI for neo4j instance")
+@click.argument("database")
+# help="URI for sqlite3 database")
 def nb_ui(**kvargs):
 	options.update(kvargs)
 
@@ -29,21 +30,24 @@ def add_note(content, parent, child):
 		with open(content) as f:
 			content = "".join( f.readlines() )
 
-	book = get_book()
-	note = book.create_note(content)
+	graph = get_graph()
+	node = graph.create_node(unicode(content))
 
 	if parent or child:
 		update_relationships(False, parent, child, [note.id])
 
-	print(note.id)
+	graph.commit()
+	print(node.id)
 
 
 @nb_ui.command("remove")
 @click.argument("id")
-def remove_note(id):
+def remove_node(id):
 
-	book = get_book()
-	book.remove_note(id)
+	graph = get_graph()
+	node = graph.node(id)
+	graph.remove_node(node)
+	graph.commit()
 
 
 import query, lisp
@@ -53,7 +57,7 @@ import query, lisp
 @click.argument("filter", required=False)
 def list_notes(template, filter):
 
-	book = get_book()
+	graph = get_graph()
 
 	if filter:
 		# use plyplus to construct the filter/selection function
@@ -62,8 +66,8 @@ def list_notes(template, filter):
 		# as an optional argument, we must construct a passthrough
 		traversal = lambda x : x
 
-	for note in traversal( set(book.notes()) ):
-		print( template.format( id=note.id, content=note.content, short=note.short ) )
+	for node in traversal( set(graph.nodes()) ):
+		print( template.format( id=node.id, content=node.content, short=node.short ) )
 
 
 def update_relationships(remove, parent, child, notes):
@@ -73,18 +77,20 @@ def update_relationships(remove, parent, child, notes):
 			return note.id in id_list
 		return in_list
 
-	book = get_book()
+	graph = get_graph()
 
-	parents = list( book.notes( matching_id(parent) ) )
-	children = list( book.notes( matching_id(child) ) )
+	parents = list( graph.notes( matching_id(parent) ) )
+	children = list( graph.notes( matching_id(child) ) )
 
-	for note in book.notes( matching_id(notes) ):
+	for node in graph.nodes( matching_id(notes) ):
 		if remove:
-			note.update_parents(remove=parents)
-			note.update_children(remove=children)
+			node.update_parents(remove=parents)
+			node.update_children(remove=children)
 		else:
-			note.update_parents(add=parents)
-			note.update_children(add=children)
+			node.update_parents(add=parents)
+			node.update_children(add=children)
+
+	graph.commit()
 
 
 @nb_ui.command("related")
