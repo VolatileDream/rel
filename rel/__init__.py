@@ -111,7 +111,7 @@ def list_nodes(template, filter):
 		traversal = lambda x : x
 
 	for node in traversal( set(graph.nodes()) ):
-		print( template.format( id=node.id, content=node.content, short=node.short ) )
+		print( template.format( id=node.id, content=node.content, short=node.short, created=node.created ) )
 
 
 def update_relationships(remove, parent, child, nodes):
