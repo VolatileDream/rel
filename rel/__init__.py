@@ -21,6 +21,12 @@ def nb_ui(**kvargs):
 	options.update(kvargs)
 
 
+@nb_ui.command("init")
+def init():
+	g = get_graph()
+	g.commit();
+
+
 @nb_ui.command("add")
 @click.argument("content", required=False)
 @click.option("-p", "--parent", multiple=True)
