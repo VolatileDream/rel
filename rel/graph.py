@@ -104,8 +104,8 @@ class Edge(object):
 
 	__table_decl__ = "CREATE TABLE edge ( head_id INTEGER, tail_id INTEGER," \
 			 "PRIMARY KEY (head_id, tail_id)," \
-			 "FOREIGN KEY (head_id) REFERENCES node(id)," \
-			 "FOREIGN KEY (tail_id) REFERENCES node(id) )"
+			 "FOREIGN KEY (head_id) REFERENCES node(id) ON DELETE CASCADE," \
+			 "FOREIGN KEY (tail_id) REFERENCES node(id) ON DELETE CASCADE )"
 
 	__storm_table__ = "edge"
 	__storm_primary__ = "head_id", "tail_id"
@@ -128,6 +128,8 @@ class Graph(object):
 	@staticmethod
 	def __create_tables__(graph):
 		import sqlite3
+		# attempt to setup foreign keys
+		graph.storm.execute( "PRAGMA foreign_keys=ON;", noresult=True )
 		try:
 			graph.storm.execute( Node.__table_decl__, noresult=True )
 		except( sqlite3.OperationalError ):
@@ -154,10 +156,11 @@ class Graph(object):
 
 	def remove_nodes(self, *nodes):
 		for n in nodes:
+			self.storm.remove(n)
+			# delete edges after, because foreign key support turns this into a no op
 			edges = self.storm.find( Edge, Or(Edge.tail_id == n.id, Edge.head_id == n.id) )
 			for e in edges:
 				self.storm.remove(e)
-			self.storm.remove(n)
 
 
 	def node(self, id):
