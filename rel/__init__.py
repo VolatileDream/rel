@@ -52,7 +52,7 @@ def remove_node(id):
 
 	graph = get_graph()
 	node = graph.node(int(id))
-	graph.remove_node(node)
+	graph.remove_nodes(node)
 	graph.commit()
 
 def edit_content(content):

@@ -154,6 +154,9 @@ class Graph(object):
 
 	def remove_nodes(self, *nodes):
 		for n in nodes:
+			edges = self.storm.find( Edge, Or(Edge.tail_id == n.id, Edge.head_id == n.id) )
+			for e in edges:
+				self.storm.remove(e)
 			self.storm.remove(n)
 
 
