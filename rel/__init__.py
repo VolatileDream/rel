@@ -100,6 +100,21 @@ def edit_node(id):
 	graph.commit()
 
 
+@nb_ui.command("export")
+def data_export():
+
+	graph = get_graph()
+
+	print("digraph g {")
+
+	for node in graph.nodes():
+		print('\t{id} [label="{short}"]'.format(id=node.id, short=node.short))
+		for child in graph.nodes( Node.id == Edge.tail_id, Edge.head_id == node.id ):
+			print("\t{parent} -> {child}".format(parent=node.id, child=child.id))
+
+	print("}")
+
+
 import query, lisp
 
 @nb_ui.command("list")
