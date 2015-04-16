@@ -43,37 +43,37 @@ class Node(object):
 
 
 	@staticmethod
-	def _create_edge(storm, parent, child):
-		r = Edge(parent.id, child.id)
+	def _create_edge(storm, parent, child, label):
+		r = Edge(parent.id, child.id, label)
 		storm.add(r)
 		return r
 
 
 	@staticmethod
-	def _delete_edge(storm, parent, child):
-		edge = storm.find(Edge, Edge.head_id == parent.id, Edge.tail_id == child.id).one()
+	def _delete_edge(storm, parent, child, label):
+		edge = storm.find(Edge, Edge.head_id == parent.id, Edge.tail_id == child.id, Edge.label == label).one()
 		storm.remove(edge)
 
-	def update_children(self, add=None, remove=None):
+	def update_children(self, add=None, remove=None, label=None):
 		store = Store.of(self)
 		add = to_iter(add)
 		for child in add:
-			Node._create_edge(store, self, child)
+			Node._create_edge(store, self, child, label)
 
 		remove = to_iter(remove)
 		for child in remove:
-			Node._delete_edge(store, self, child)
+			Node._delete_edge(store, self, child, label)
 
 
-	def update_parents(self, add=None, remove=None):
+	def update_parents(self, add=None, remove=None, label=None):
 		store = Store.of(self)
 		add = to_iter(add)
 		for parent in add:
-			Node._create_edge(store, parent, self)
+			Node._create_edge(store, parent, self, label)
 
 		remove = to_iter(remove)
 		for parent in remove:
-			Node._delete_edge(store, parent, self)
+			Node._delete_edge(store, parent, self, label)
 
 
 	def children(self):
@@ -102,25 +102,38 @@ class Node(object):
 
 class Edge(object):
 
-	__table_decl__ = "CREATE TABLE edge ( head_id INTEGER, tail_id INTEGER," \
-			 "PRIMARY KEY (head_id, tail_id)," \
+	__table_decl__ = "CREATE TABLE edge (" \
+			 "head_id INTEGER, tail_id INTEGER, label VARCHAR," \
+			 "PRIMARY KEY (head_id, tail_id, label)," \
 			 "FOREIGN KEY (head_id) REFERENCES node(id) ON DELETE CASCADE," \
 			 "FOREIGN KEY (tail_id) REFERENCES node(id) ON DELETE CASCADE )"
 
 	__storm_table__ = "edge"
-	__storm_primary__ = "head_id", "tail_id"
+	__storm_primary__ = "head_id", "tail_id", "label"
 	head_id = Int()
 	tail_id = Int()
+	label = Unicode()
 	head = Reference(head_id, Node.id)
 	tail = Reference(tail_id, Node.id)
 
-	def __init__(self, head, tail):
+	def __init__(self, head, tail, label):
 		self.head_id = head
 		self.tail_id = tail
+		self.label = label
 
 
 	def __repr__(self):
 		return "{0} -> {1}".format( self.head_id, self.tail_id )
+
+
+	def __hash__(self):
+		return hash(self.head_id ^ self.tail_id)
+
+
+	def __eq__(self, other):
+		if type(other) is Edge:
+			return self.head_id.__eq__(other.head_id) and self.tail_id.__eq__(other.tail_id)
+		return False
 
 
 class Graph(object):
@@ -172,6 +185,12 @@ class Graph(object):
 			return self.storm.find(Node)
 		else:
 			return self.storm.find(Node, *args, **kvargs)
+
+	def edges(self, *args, **kvargs):
+		if len(args) == 0 and len(kvargs) == 0:
+			return self.storm.find(Edge)
+		else:
+			return self.storm.find(Edge, *args, **kvargs)
 
 
 	def commit(self):
