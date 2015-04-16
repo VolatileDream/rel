@@ -11,3 +11,8 @@ to support a Directed Graph (rel/graph.py) in [sqlite3](https://sqlite.org/)
 storage. It uses [PlyPlus](https://github.com/erezsh/plyplus) to support a
 lisp-like query language (rel/lisp.py) when listing or searching for nodes
 (see rel/query.py for all functions, look for @expose or @expose_as).
+
+## Command Line Invocation
+
+See `rel --help`
+
